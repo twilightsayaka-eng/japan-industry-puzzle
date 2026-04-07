@@ -146,7 +146,7 @@
       padding:6px 8px;
       border-radius:12px;
       border:2px dashed #91c9ff;
-      background:rgba(255,255,255,.9);
+      background:rgba(255,255,255,.92);
       color:#7aa7cc;
       font-size:.76rem;
       font-weight:700;
@@ -327,16 +327,17 @@
         <div class="map-box" id="map-box">
           <img src="japan-map.png" alt="日本地図" class="map-image">
 
-          <div class="slot" data-key="hokkaido" style="left:76%; top:18%;">ここに入れる</div>
-          <div class="slot" data-key="hokuriku" style="left:51%; top:39%;">ここに入れる</div>
-          <div class="slot" data-key="keihin" style="left:64%; top:49%;">ここに入れる</div>
-          <div class="slot" data-key="keiyo" style="left:71%; top:52%;">ここに入れる</div>
-          <div class="slot" data-key="kanto-nairiku" style="left:57%; top:46%;">ここに入れる</div>
-          <div class="slot" data-key="chukyo" style="left:50%; top:62%;">ここに入れる</div>
-          <div class="slot" data-key="tokai" style="left:58%; top:65%;">ここに入れる</div>
-          <div class="slot" data-key="hanshin" style="left:38%; top:70%;">ここに入れる</div>
-          <div class="slot" data-key="setouchi" style="left:30%; top:77%;">ここに入れる</div>
-          <div class="slot" data-key="kitakyushu" style="left:20%; top:84%;">ここに入れる</div>
+          <!-- この地図画像に合わせて位置を修正済み -->
+          <div class="slot" data-key="hokkaido" style="left:73%; top:16%;">ここに入れる</div>
+          <div class="slot" data-key="hokuriku" style="left:55%; top:38%;">ここに入れる</div>
+          <div class="slot" data-key="kanto-nairiku" style="left:53%; top:51%;">ここに入れる</div>
+          <div class="slot" data-key="keihin" style="left:62%; top:55%;">ここに入れる</div>
+          <div class="slot" data-key="keiyo" style="left:71%; top:56%;">ここに入れる</div>
+          <div class="slot" data-key="chukyo" style="left:56%; top:60%;">ここに入れる</div>
+          <div class="slot" data-key="tokai" style="left:61%; top:63%;">ここに入れる</div>
+          <div class="slot" data-key="hanshin" style="left:45%; top:69%;">ここに入れる</div>
+          <div class="slot" data-key="setouchi" style="left:36%; top:75%;">ここに入れる</div>
+          <div class="slot" data-key="kitakyushu" style="left:27%; top:84%;">ここに入れる</div>
         </div>
       </div>
 
@@ -406,13 +407,15 @@
         label.className = "draggable";
         label.textContent = item.label;
         label.dataset.key = item.key;
-        label.dataset.home = "true";
 
         const col = index % cols;
         const row = Math.floor(index / cols);
 
-        label.style.left = (12 + col * colWidth) + "px";
-        label.style.top = (12 + row * rowHeight) + "px";
+        label.dataset.homeLeft = (12 + col * colWidth);
+        label.dataset.homeTop = (12 + row * rowHeight);
+
+        label.style.left = label.dataset.homeLeft + "px";
+        label.style.top = label.dataset.homeTop + "px";
 
         label.addEventListener("pointerdown", startDrag);
         bankArea.appendChild(label);
@@ -444,13 +447,12 @@
     function onDragMove(e) {
       if (!dragged) return;
 
-      const appRect = document.querySelector(".app").getBoundingClientRect();
-      const x = e.clientX - appRect.left - pointerOffsetX;
-      const y = e.clientY - appRect.top - pointerOffsetY;
+      const x = e.clientX - pointerOffsetX;
+      const y = e.clientY - pointerOffsetY;
 
+      dragged.style.position = "fixed";
       dragged.style.left = x + "px";
       dragged.style.top = y + "px";
-      dragged.style.position = "fixed";
 
       highlightHoveredSlot(e.clientX, e.clientY);
     }
@@ -461,6 +463,14 @@
       const hovered = document.elementFromPoint(clientX, clientY);
       const slot = hovered && hovered.closest(".slot");
       if (slot) slot.classList.add("hover");
+    }
+
+    function moveBackToBank(el) {
+      el.style.position = "absolute";
+      el.style.left = el.dataset.homeLeft + "px";
+      el.style.top = el.dataset.homeTop + "px";
+      el.classList.remove("used");
+      el.dataset.placed = "";
     }
 
     function endDrag(e) {
@@ -477,10 +487,14 @@
         if (slot.dataset.filledKey) {
           const oldKey = slot.dataset.filledKey;
           const oldLabel = [...document.querySelectorAll(".draggable")].find(el => el.dataset.key === oldKey);
-          if (oldLabel) {
-            oldLabel.classList.remove("used");
-            oldLabel.dataset.placed = "";
-          }
+          if (oldLabel) moveBackToBank(oldLabel);
+        }
+
+        const oldSlot = slots.find(s => s.dataset.filledKey === currentKey);
+        if (oldSlot) {
+          oldSlot.dataset.filledKey = "";
+          oldSlot.textContent = "ここに入れる";
+          oldSlot.classList.remove("correct", "wrong");
         }
 
         slot.dataset.filledKey = currentKey;
@@ -488,26 +502,21 @@
 
         dragged.classList.add("used");
         dragged.dataset.placed = "true";
+        moveBackToBank(dragged);
+        dragged.classList.add("used");
 
         statusChip.textContent = "つづけてドラッグしてください";
+      } else {
+        moveBackToBank(dragged);
       }
 
-      restoreDraggedVisual();
-      updateCount();
-    }
-
-    function restoreDraggedVisual() {
-      if (!dragged) return;
-
       dragged.classList.remove("dragging");
-      dragged.style.position = "absolute";
-
-      // 使用済みなら銀行に戻すだけ
       dragged.removeEventListener("pointermove", onDragMove);
       dragged.removeEventListener("pointerup", endDrag);
       dragged.removeEventListener("pointercancel", endDrag);
-
       dragged = null;
+
+      updateCount();
     }
 
     function updateCount() {
@@ -561,7 +570,6 @@
     }
 
     resetPuzzle();
-    window.addEventListener("resize", resetPuzzle);
   </script>
 </body>
 </html>
